@@ -2,6 +2,25 @@
 
 Observa una o más carpetas **en vivo** y muestra el código viejo y el nuevo lado a lado, con la estructura de carpetas resultante. Sirve para seguir en tiempo real lo que cambia mientras editás, o lo que cambia un agente o un script. También sirve para revisar una branch como si fuera un PR, sin salir de tu máquina.
 
+## ¿Por qué usarlo?
+
+Comparado con la vista de cambios de VS Code, la de un IDE con agente o el chat con Claude:
+
+- **Compara contra una foto, no contra el último commit.** Toma cómo estaba la carpeta al abrirla. Si ya tenías cambios sin commitear y le pedís algo a un agente, ves solo lo que hizo él. Con "Aceptar cambios" marcás un nuevo punto de partida.
+- **No le importa quién hizo el cambio.** Observa el disco: vos, Claude Code, otro agente, un script o un `git pull`. La vista de un agente solo muestra lo que editó ese agente.
+- **Varias branches y worktrees a la vez.** Cada worktree es una tab en vivo, ideal para varios agentes trabajando en paralelo. Al cambiar de branch, la anterior queda congelada con sus cambios en vez de desaparecer.
+- **Muestra lo mismo que un PR, sin subir nada.** Compara contra el merge-base con otra branch e incluye lo que todavía no commiteaste. En GitHub solo ves lo pusheado, y en VS Code necesitás extensiones.
+- **Te dice si algo es nuevo o ya existía.** "Find all references" te dice dónde se usa un símbolo. Esta herramienta además te dice si ese uso, o la definición misma, lo trajo este cambio. Sirve para revisar código de un agente: "¿esta función la creó él o ya estaba?".
+- **Árbol de la estructura resultante.** Ves qué se creó, se modificó o se borró dentro de su carpeta, en lugar de una lista plana.
+- **Liviana y aparte del editor.** Es una pestaña del navegador: la podés tener en otro monitor mientras un agente trabaja solo en la terminal.
+
+**Lo que no hace** (para eso seguí usando las otras herramientas):
+
+- No edita ni permite aceptar o rechazar un cambio puntual: es solo de lectura.
+- El estado vive en memoria: si reiniciás el server, la foto inicial se vuelve a sacar.
+
+**En resumen:** no reemplaza al editor ni al PR. Sirve para **supervisar en vivo** los cambios que hace otro, sobre todo un agente, en varias branches a la vez, separando lo nuevo de lo que ya existía.
+
 ## Requisitos
 
 - Node.js 20.19+ o 22.12+ (lo piden Vite y chokidar)
