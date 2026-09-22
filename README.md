@@ -45,6 +45,7 @@ Las carpetas abiertas quedan en la URL (`?dir=...&dir=...&active=...`), así que
 - El diff se ve lado a lado, con resaltado por palabra. Los bloques largos sin cambios se pliegan (click para expandirlos).
 - El árbol de la izquierda muestra la estructura resultante: `+` nuevo, `~` modificado, `−` eliminado. Los archivos que se acaban de tocar se iluminan un instante.
 - **Solo cambios**: esconde los archivos que no cambiaron.
+- **Ancho del árbol**: arrastrá la barra entre el árbol y el diff para agrandarlo (o, con el foco en la barra, `←`/`→`; con `Shift` avanza más). Se recuerda para la próxima vez; doble click vuelve al ancho original.
 - **Aceptar cambios**: el estado actual pasa a ser el nuevo "código viejo" (solo en la tab activa).
 
 ### Elegir carpetas
@@ -60,7 +61,7 @@ Las carpetas abiertas quedan en la URL (`?dir=...&dir=...&active=...`), así que
 - **Worktrees**: si la carpeta es un repo, sus otros `git worktree` aparecen como tabs punteadas (`+ ⎇ branch`). Con un click los sumás y ves todos en vivo a la vez. Si un worktree está dentro de la carpeta (ej. `.worktrees/`), sus cambios no se mezclan con los del repo principal.
 
 ### Buscar funciones y constantes
-Está arriba del árbol. También se abre con `Ctrl+Shift+F`, o con doble click en una palabra del diff.
+Está arriba del árbol. También se abre con `Ctrl+Shift+F`; si tenés una palabra seleccionada en el diff, la busca directo.
 
 - Busca dónde aparece el símbolo en la tab y lo clasifica:
   - **Nuevo**: no estaba en el código viejo.

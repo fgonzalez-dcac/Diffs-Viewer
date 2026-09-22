@@ -32,13 +32,15 @@
     <nav id="tabs" hidden></nav>
     <main>
       <aside>
-        <form id="symbol-form" autocomplete="off" title="Busca dónde se usa una función o constante y te dice si es nueva o ya existía (Ctrl+Shift+F, o doble click en una palabra del diff)">
+        <form id="symbol-form" autocomplete="off" title="Busca dónde se usa una función o constante y te dice si es nueva o ya existía (Ctrl+Shift+F; con una palabra seleccionada, la busca directo)">
           <input id="symbol-input" placeholder="🔎 Función o constante…" spellcheck="false" />
         </form>
         <div class="aside-title">Estructura resultante <span id="counts"></span></div>
         <div id="frozen-note" hidden>Esta branch no está activa: se muestran los cambios como quedaron al salir de ella.</div>
         <div id="tree"></div>
       </aside>
+      <div id="resizer" role="separator" aria-orientation="vertical" aria-label="Ancho del árbol" tabindex="0"
+        title="Arrastrá para cambiar el ancho · doble click: ancho original"></div>
       <section id="viewer">
         <div class="empty">Indicá una carpeta y empezá a editar archivos: los cambios aparecen acá en vivo.</div>
       </section>

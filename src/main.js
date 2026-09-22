@@ -521,12 +521,54 @@ $('#base').addEventListener('change', async (e) => {
   renderViewer()
 })
 
-// Doble click en una palabra del diff: buscar dónde más se usa
-$('#viewer').addEventListener('dblclick', (e) => {
-  if (!e.target.closest('td.code')) return
-  const word = getSelection().toString().trim()
-  if (/^[\w$]+$/.test(word) && !/^\d+$/.test(word)) searchSymbolName(word)
+// ---------- Ancho del árbol (arrastrando la barra entre el árbol y el diff) ----------
+
+const ASIDE_KEY = 'diffs-viewer:aside-width'
+const ASIDE_DEFAULT = 300
+const ASIDE_MIN = 180
+const VIEWER_MIN = 320 // lo mínimo que se le deja al diff
+
+let asideWanted = ASIDE_DEFAULT // el ancho elegido; el real puede ser menor si la ventana es angosta
+
+function setAsideWidth(px, save = true) {
+  asideWanted = Math.round(Math.max(px, ASIDE_MIN))
+  const w = Math.max(ASIDE_MIN, Math.min(asideWanted, window.innerWidth - VIEWER_MIN))
+  document.documentElement.style.setProperty('--aside-w', `${w}px`)
+  if (save) try { localStorage.setItem(ASIDE_KEY, asideWanted) } catch {}
+}
+
+try { const saved = Number(localStorage.getItem(ASIDE_KEY)); if (saved) setAsideWidth(saved, false) } catch {}
+
+const resizer = $('#resizer')
+resizer.addEventListener('pointerdown', (e) => {
+  e.preventDefault()
+  resizer.setPointerCapture(e.pointerId)
+  document.body.classList.add('resizing')
+  const left = $('aside').getBoundingClientRect().left
+  const move = (ev) => setAsideWidth(Math.min(ev.clientX - left, window.innerWidth - VIEWER_MIN))
+  const up = () => {
+    document.body.classList.remove('resizing')
+    resizer.removeEventListener('pointermove', move)
+    resizer.removeEventListener('pointerup', up)
+    resizer.removeEventListener('pointercancel', up)
+  }
+  resizer.addEventListener('pointermove', move)
+  resizer.addEventListener('pointerup', up)
+  resizer.addEventListener('pointercancel', up)
 })
+resizer.addEventListener('dblclick', () => {
+  setAsideWidth(ASIDE_DEFAULT, false)
+  try { localStorage.removeItem(ASIDE_KEY) } catch {}
+})
+// Con el foco en la barra, ←/→ achican o agrandan (Shift = pasos más grandes)
+resizer.addEventListener('keydown', (e) => {
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+  e.preventDefault()
+  const step = (e.shiftKey ? 80 : 20) * (e.key === 'ArrowLeft' ? -1 : 1)
+  setAsideWidth($('aside').getBoundingClientRect().width + step)
+})
+// Si la ventana se achica, que el diff no quede aplastado (y al agrandarla, vuelve al ancho elegido)
+window.addEventListener('resize', () => setAsideWidth(asideWanted, false))
 
 $('#tree').addEventListener('click', (e) => {
   const el = e.target.closest('.file')
