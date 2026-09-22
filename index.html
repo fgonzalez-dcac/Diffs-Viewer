@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Diffs Viewer</title>
+  </head>
+  <body>
+    <header>
+      <strong>Diffs Viewer</strong>
+      <form id="root-form" autocomplete="off">
+        <div class="path-field">
+          <input id="root-input" placeholder="~/ruta/a/la/carpeta  (Tab completa, ↑↓ elige)" spellcheck="false"
+            role="combobox" aria-autocomplete="list" aria-controls="path-suggestions" aria-expanded="false" />
+          <ul id="path-suggestions" role="listbox" hidden></ul>
+        </div>
+        <button type="button" id="pick" title="Abrir el explorador de carpetas del sistema">📂 Explorar…</button>
+        <button type="submit">Agregar carpeta</button>
+      </form>
+      <label class="toggle"><input type="checkbox" id="only-changes" checked /> Solo cambios</label>
+      <div class="base" title="Hace git switch en la carpeta de esta tab. Las remotas crean una branch local que las sigue.">
+        Branch
+        <select id="checkout" disabled hidden></select>
+      </div>
+      <div class="base" title="Contra qué se compara esta tab. Con una branch se usa el merge-base, como en un PR.">
+        Comparar contra
+        <select id="base" disabled hidden><option value="">Foto inicial</option></select>
+      </div>
+      <button id="reset" title="El estado actual pasa a ser el código viejo (solo en esta tab)">Aceptar cambios</button>
+      <span id="status"></span>
+    </header>
+    <nav id="tabs" hidden></nav>
+    <main>
+      <aside>
+        <form id="symbol-form" autocomplete="off" title="Busca dónde se usa una función o constante y te dice si es nueva o ya existía (Ctrl+Shift+F, o doble click en una palabra del diff)">
+          <input id="symbol-input" placeholder="🔎 Función o constante…" spellcheck="false" />
+        </form>
+        <div class="aside-title">Estructura resultante <span id="counts"></span></div>
+        <div id="frozen-note" hidden>Esta branch no está activa: se muestran los cambios como quedaron al salir de ella.</div>
+        <div id="tree"></div>
+      </aside>
+      <section id="viewer">
+        <div class="empty">Indicá una carpeta y empezá a editar archivos: los cambios aparecen acá en vivo.</div>
+      </section>
+    </main>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
