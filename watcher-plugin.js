@@ -11,6 +11,7 @@ import { promisify } from 'node:util'
 import chokidar from 'chokidar'
 import { diffLines } from 'diff'
 
+const COMMIT_PREFIX = 'commit:' // así se distingue una branch de un commit en el selector
 const IGNORED_DIRS = new Set(['node_modules', '.git', 'dist', 'build', '.next', '.nuxt', '.cache', 'coverage', '.venv', '__pycache__'])
 const MAX_SIZE = 1024 * 1024 // 1MB: archivos más grandes se tratan como binarios
 const CHECKOUT_SETTLE_MS = 400 // espera a que git termine de escribir archivos tras un checkout
@@ -93,25 +94,46 @@ function switchBranch(cwd, branch) {
   }
 }
 
-// Arma el "código viejo" desde git: los archivos como estaban en el merge-base entre
-// HEAD y la branch base (lo mismo que muestra un PR). Lo que git no ve como cambiado
-// se toma igual que en disco.
-function baselineFromBranch(cwd, current, base) {
-  const mergeBase = git(cwd, 'merge-base', 'HEAD', base)
-  if (!mergeBase) throw new Error(`No existe la branch ${base} o no tiene historia en común con esta`)
+// Últimos commits de la branch actual, para comparar contra uno de ellos
+function commits(cwd, limit = 50) {
+  const out = git(cwd, 'log', `-n${limit}`, '--format=%h%x00%s%x00%cr', 'HEAD')
+  if (!out) return []
+  return out.split('\n').map((l) => {
+    const [sha, subject, when] = l.split('\0')
+    return { sha, subject, when }
+  })
+}
+
+// Arma el "código viejo" desde git: los archivos como estaban en ese commit.
+// Lo que git no ve como cambiado se toma igual que en disco.
+function baselineAt(cwd, current, rev) {
   const list = (...args) => (git(cwd, ...args) ?? '').split('\0').filter((f) => f && !isIgnoredRel(f))
 
   const baseline = new Map(current)
   for (const f of list('ls-files', '--others', '--exclude-standard', '-z')) baseline.delete(f)
-  for (const f of list('diff', '--name-only', '--no-renames', '--relative', '-z', mergeBase)) {
+  for (const f of list('diff', '--name-only', '--no-renames', '--relative', '-z', rev)) {
     try {
-      const buf = execFileSync('git', ['show', `${mergeBase}:./${f}`], { cwd, maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] })
+      const buf = execFileSync('git', ['show', `${rev}:./${f}`], { cwd, maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] })
       baseline.set(f, toContent(buf))
     } catch {
       baseline.delete(f) // no existía en la base: es un archivo nuevo
     }
   }
   return baseline
+}
+
+// Contra una branch se compara con el merge-base, que es lo que muestra un PR;
+// contra un commit, con ese commit tal cual.
+function baselineFromBase(cwd, current, base) {
+  if (base.startsWith(COMMIT_PREFIX)) {
+    const sha = base.slice(COMMIT_PREFIX.length)
+    const rev = git(cwd, 'rev-parse', '--verify', '--quiet', `${sha}^{commit}`)
+    if (!rev) throw new Error(`No existe el commit ${sha} en esta carpeta`)
+    return baselineAt(cwd, current, rev)
+  }
+  const mergeBase = git(cwd, 'merge-base', 'HEAD', base)
+  if (!mergeBase) throw new Error(`No existe la branch ${base} o no tiene historia en común con esta`)
+  return baselineAt(cwd, current, mergeBase)
 }
 
 // Worktrees del repo al que pertenece la carpeta: [{ path, branch }]
@@ -250,6 +272,16 @@ function searchSymbol(session, name) {
   }
 }
 
+// Con qué se está comparando la tab, para poder explicárselo al usuario en la UI
+function baseInfo(s) {
+  if (!s.base) return null
+  if (!s.base.startsWith(COMMIT_PREFIX)) return { kind: 'branch', name: s.base }
+  const sha = s.base.slice(COMMIT_PREFIX.length)
+  // Commits que entraron después del elegido: junto con lo no commiteado, es lo que se está viendo
+  const ahead = Number(git(s.root, 'rev-list', '--count', `${sha}..HEAD`))
+  return { kind: 'commit', sha, label: s.baseLabel ?? sha, ahead: Number.isFinite(ahead) ? ahead : null }
+}
+
 function sameContent(a, b) {
   if (!a || !b) return a === b
   if (a.binary || b.binary) return a.binary === b.binary
@@ -365,7 +397,7 @@ export default function diffWatcher() {
     const list = [...sessions.values()].map((s) => {
       const counts = { added: 0, modified: 0, deleted: 0, unchanged: 0 }
       for (const f of new Set([...s.baseline.keys(), ...s.current.keys()])) counts[status(s, f)]++
-      return { id: s.id, root: s.root, name: path.basename(s.root), branch: s.label, base: s.base, live: isLive(s), counts }
+      return { id: s.id, root: s.root, name: path.basename(s.root), branch: s.label, base: s.base, baseLabel: s.baseLabel ?? s.base, baseInfo: baseInfo(s), live: isLive(s), counts }
     })
     const s = sessions.get(id)
     const files = s
@@ -469,7 +501,13 @@ export default function diffWatcher() {
         if (req.method === 'GET' && url.pathname === '/branches') {
           const s = sessions.get(id)
           const list = s ? branches(s.root) : { all: [], local: [], remote: [] }
-          return send(res, 200, { base: s?.base ?? null, branches: list.all, local: list.local, remote: list.remote })
+          return send(res, 200, {
+            base: s?.base ?? null,
+            branches: list.all,
+            local: list.local,
+            remote: list.remote,
+            commits: s ? commits(s.root) : [],
+          })
         }
 
         if (req.method === 'POST' && url.pathname === '/checkout') {
@@ -491,13 +529,14 @@ export default function diffWatcher() {
 
         if (req.method === 'POST' && url.pathname === '/base') {
           // Cambia contra qué se compara la tab: una branch, o null para volver a la foto inicial
-          const { session, base } = await readBody(req)
+          const { session, base, label } = await readBody(req)
           const s = sessions.get(session)
           if (!s) return send(res, 404, { error: 'La tab ya no existe' })
           if (!isLive(s)) return send(res, 400, { error: 'Solo se puede cambiar la base de una tab en vivo' })
           try {
-            s.baseline = base ? baselineFromBranch(s.root, s.current, base) : s.snapshot
+            s.baseline = base ? baselineFromBase(s.root, s.current, base) : s.snapshot
             s.base = base || null
+            s.baseLabel = base ? label || base : null
           } catch (err) {
             return send(res, 400, { error: err.message })
           }

@@ -22,7 +22,7 @@
         Branch
         <select id="checkout" disabled hidden></select>
       </div>
-      <div class="base" title="Contra qué se compara esta tab. Con una branch se usa el merge-base, como en un PR.">
+      <div class="base" title="Contra qué se compara esta tab. Con una branch se usa el merge-base, como en un PR. Con un commit, ese commit tal cual: ves todo lo que cambió desde ahí.">
         Comparar contra
         <select id="base" disabled hidden><option value="">Foto inicial</option></select>
       </div>
@@ -30,6 +30,7 @@
       <span id="status"></span>
     </header>
     <nav id="tabs" hidden></nav>
+    <div id="base-note" hidden></div>
     <main>
       <aside>
         <form id="symbol-form" autocomplete="off" title="Busca dónde se usa una función o constante y te dice si es nueva o ya existía (Ctrl+Shift+F; con una palabra seleccionada, la busca directo)">

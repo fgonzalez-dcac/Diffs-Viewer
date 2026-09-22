@@ -9,7 +9,7 @@ Comparado con la vista de cambios de VS Code, la de un IDE con agente o el chat 
 - **Compara contra una foto, no contra el último commit.** Toma cómo estaba la carpeta al abrirla. Si ya tenías cambios sin commitear y le pedís algo a un agente, ves solo lo que hizo él. Con "Aceptar cambios" marcás un nuevo punto de partida.
 - **No le importa quién hizo el cambio.** Observa el disco: vos, Claude Code, otro agente, un script o un `git pull`. La vista de un agente solo muestra lo que editó ese agente.
 - **Varias branches y worktrees a la vez.** Cada worktree es una tab en vivo, ideal para varios agentes trabajando en paralelo. Al cambiar de branch, la anterior queda congelada con sus cambios en vez de desaparecer.
-- **Muestra lo mismo que un PR, sin subir nada.** Compara contra el merge-base con otra branch e incluye lo que todavía no commiteaste. En GitHub solo ves lo pusheado, y en VS Code necesitás extensiones.
+- **Muestra lo mismo que un PR, sin subir nada.** Compara contra el merge-base con otra branch, o contra un commit cualquiera de la branch actual, y siempre incluye lo que todavía no commiteaste. En GitHub solo ves lo pusheado, y en VS Code necesitás extensiones.
 - **Te dice si algo es nuevo o ya existía.** "Find all references" te dice dónde se usa un símbolo. Esta herramienta además te dice si ese uso, o la definición misma, lo trajo este cambio. Sirve para revisar código de un agente: "¿esta función la creó él o ya estaba?".
 - **Árbol de la estructura resultante.** Ves qué se creó, se modificó o se borró dentro de su carpeta, en lugar de una lista plana.
 - **Liviana y aparte del editor.** Es una pestaña del navegador: la podés tener en otro monitor mientras un agente trabaja solo en la terminal.
@@ -56,8 +56,11 @@ Las carpetas abiertas quedan en la URL (`?dir=...&dir=...&active=...`), así que
 ### Branches
 - **Tabs por branch**: cada tab es una carpeta + una branch. Al hacer `git checkout`, desde la app o desde la terminal, la tab de la branch anterior queda congelada con sus cambios y se abre (o se reanuda) la de la branch nueva. `Alt+1..9` salta entre tabs.
 - **Branch**: te cambia de branch desde la app (`git switch` en la carpeta de la tab). Si elegís una remota que no tiene branch local, la crea siguiendo a la remota. No hace stash: si git se niega por cambios sin commitear, te muestra el error.
-- **Comparar contra**: compara la tab contra el merge-base con otra branch, igual que un PR. Ves lo commiteado y lo que todavía no commiteaste, sin lo que entró después en la otra branch.
-- Los dos selectores tienen buscador: filtra por varias palabras en cualquier orden (ej. `origen fondo`), `↑↓` + `Enter` para elegir, `Esc` para cerrar. La lista de branches se pide a git cada vez que lo abrís.
+- **Comparar contra**: elegís contra qué se compara la tab.
+  - Una **branch**: usa el merge-base, igual que un PR. Ves lo commiteado y lo que todavía no commiteaste, sin lo que entró después en la otra branch.
+  - Un **commit** de la branch en la que estás parado (los últimos 50, con su mensaje y cuándo fue): compara contra ese commit tal cual, así ves todo lo que cambió desde ahí, incluido lo que no commiteaste. Útil para "hice el commit 1, después seguí, ¿qué cambió desde entonces?".
+  - Cuando la base no es la foto inicial, un cartel arriba del diff aclara qué estás viendo. Con un commit avisa que ves **todo lo posterior** a ese commit, no lo que hizo ese commit, y cuántos commits posteriores hay. Para ver los commits de otra branch, primero paráte en ella con el selector **Branch**.
+- Los dos selectores tienen buscador: filtra por varias palabras en cualquier orden (ej. `origen fondo`), también por mensaje de commit, `↑↓` + `Enter` para elegir, `Esc` para cerrar. Las listas se piden a git cada vez que lo abrís.
 - **Worktrees**: si la carpeta es un repo, sus otros `git worktree` aparecen como tabs punteadas (`+ ⎇ branch`). Con un click los sumás y ves todos en vivo a la vez. Si un worktree está dentro de la carpeta (ej. `.worktrees/`), sus cambios no se mezclan con los del repo principal.
 
 ### Buscar funciones y constantes

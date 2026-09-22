@@ -117,7 +117,7 @@ button:hover { border-color: var(--muted); }
 .picker-list mark { background: #d2992255; color: inherit; border-radius: 2px; }
 .picker-group { padding: 6px 8px 2px; font-family: system-ui; font-size: 11px; text-transform: uppercase; color: var(--muted); }
 .picker-empty { padding: 8px; color: var(--muted); font-family: system-ui; }
-.tab-base { font-size: 11.5px; font-family: var(--mono); color: var(--accent); }
+.tab-base { font-size: 11.5px; font-family: var(--mono); color: var(--accent); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .th-base { font-family: var(--mono); color: var(--accent); font-weight: 400; }
 #status { color: var(--add); font-size: 13px; }
 #status.frozen { color: var(--frozen); }
@@ -157,6 +157,18 @@ button:hover { border-color: var(--muted); }
 .tab.ghost:hover { opacity: 1; }
 .tab .close { background: none; border: none; color: var(--muted); padding: 0 6px; font-size: 16px; line-height: 1; }
 .tab .close:hover { color: var(--text); }
+
+#base-note {
+  padding: 7px 14px;
+  font-size: 12.5px;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+  background: #58a6ff14;
+}
+#base-note.commit { background: #d2992222; border-bottom-color: #d2992255; }
+#base-note b { font-family: var(--mono); font-weight: 600; }
+#base-note.commit b { color: var(--mod); }
+#base-note.branch b { color: var(--accent); }
 
 #frozen-note {
   margin: 0 10px 8px;

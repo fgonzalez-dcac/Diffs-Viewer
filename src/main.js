@@ -50,6 +50,25 @@ function renderNode(node) {
 
 const countsHtml = (c) => `<b class="added">+${c.added}</b> <b class="modified">~${c.modified}</b> <b class="deleted">−${c.deleted}</b>`
 
+// Deja claro qué se está viendo cuando la base no es la foto inicial: con un commit
+// es fácil creer que se ve "ese commit", cuando en realidad se ve todo lo posterior.
+function renderBaseNote() {
+  const note = $('#base-note')
+  const info = activeSession()?.baseInfo
+  note.hidden = !info
+  if (!info) return
+  if (info.kind === 'branch') {
+    note.className = 'branch'
+    note.innerHTML = `Comparando contra <b>${esc(info.name)}</b>: ves lo que <b>agrega esta branch</b> (desde el merge-base), como en un PR.`
+    return
+  }
+  const posteriores = info.ahead === null ? '' :
+    info.ahead === 0 ? 'Todavía no hay commits posteriores: solo se ve lo que no está commiteado.'
+    : `Son <b>${info.ahead} ${info.ahead === 1 ? 'commit posterior' : 'commits posteriores'}</b> más lo que no esté commiteado.`
+  note.className = 'commit'
+  note.innerHTML = `Parado en <b>${esc(info.label)}</b>: ves <b>todo lo que cambió después</b> de ese commit, no lo que hizo ese commit. ${posteriores}`
+}
+
 function renderTree() {
   const session = activeSession()
   const onlyChanges = $('#only-changes').checked
@@ -78,7 +97,7 @@ function renderTabs() {
         <span class="dot"></span>
         <span class="tab-branch">${esc(s.branch ? `⎇ ${s.branch}` : s.name)}</span>
         ${s.branch ? `<span class="tab-folder">${esc(s.name)}</span>` : ''}
-        ${s.base ? `<span class="tab-base">vs ${esc(s.base)}</span>` : ''}
+        ${s.base ? `<span class="tab-base">vs ${esc(s.baseLabel ?? s.base)}</span>` : ''}
         <span class="tab-counts">${countsHtml(s.counts)}</span>
         <button class="close" data-close="${s.id}" title="Cerrar tab">×</button>
       </div>`
@@ -92,7 +111,7 @@ function selectTab(id) {
   selected = selectedBySession.get(id) ?? null
   $('#viewer').scrollTop = 0
   if (!selected) $('#viewer').innerHTML = '<div class="empty">Elegí un archivo del árbol o editá uno para verlo acá.</div>'
-  if (branchesFor !== id) branchList = localBranches = remoteBranches = []
+  if (branchesFor !== id) branchList = localBranches = remoteBranches = commitList = []
   return refresh().then(() => { renderViewer(); loadBranches() })
 }
 
@@ -184,7 +203,7 @@ async function renderViewer() {
   if (file.old?.binary || file.new?.binary) body = `<div class="empty">Archivo binario o muy grande: no se muestra el diff.</div>`
   else body = renderDiffTable(buildRows(file.old?.text ?? '', file.new?.text ?? ''), focus)
 
-  const base = activeSession()?.base
+  const base = activeSession()?.baseLabel
   body = body.replace('>Código viejo<', `>Código viejo${base ? ` <span class="th-base">(base: ${esc(base)})</span>` : ''}<`)
   const back = symbolQuery ? `<button class="back-search" data-back title="Volver a los resultados">← ${esc(symbolQuery)}</button>` : ''
   const scroll = $('#viewer').scrollTop
@@ -222,7 +241,7 @@ async function renderSearch() {
 
   const onlyChanges = $('#only-changes').checked
   const [label, help] = SYMBOL_STATUS[result.status]
-  const base = activeSession()?.base
+  const base = activeSession()?.baseLabel
   const c = result.counts
   const summary = [
     c.added && `<b class="added">${c.added} ${c.added === 1 ? 'uso nuevo' : 'usos nuevos'}</b>`,
@@ -253,7 +272,7 @@ async function renderSearch() {
       <span class="sr-summary">${summary}</span>
     </div>
     <div class="search-results">
-      <p class="sr-help">${esc(help)} Código viejo = ${base ? `merge-base con <code>${esc(base)}</code>` : 'foto inicial'}.</p>
+      <p class="sr-help">${esc(help)} Código viejo = ${base ? `<code>${esc(base)}</code>` : 'foto inicial'}.</p>
       ${files.map((f) => `<div class="sr-file">
           <div class="sr-path">${esc(f.path)} ${labels[f.status] ? `<span class="badge ${f.status}">${labels[f.status]}</span>` : ''}</div>
           ${f.shown.map((m) => line(f, m)).join('')}
@@ -331,6 +350,7 @@ async function refresh() {
   $('#status').title = ''
   if (restored) saveFolders()
   renderTabs()
+  renderBaseNote()
   renderTree()
   renderBaseSelect()
   renderCheckoutSelect()
@@ -341,6 +361,7 @@ async function refresh() {
 let branchList = []
 let localBranches = []
 let remoteBranches = []
+let commitList = [] // últimos commits de la branch de la tab: { sha, subject, when }
 let branchesFor = null // tab para la que se cargó branchList
 
 // Repinta un <select> solo si cambiaron sus opciones, para no cerrar el desplegable si está abierto
@@ -365,13 +386,33 @@ function renderCheckoutSelect() {
   syncPicker(select)
 }
 
+// "abc1234  mensaje largo  · hace 2 horas" -> "abc1234 mensaje largo…" (option.text colapsa los espacios)
+function shortCommitLabel(text, max = 44) {
+  const clean = text.split(' · ')[0].trim()
+  return clean.length > max ? `${clean.slice(0, max - 1).trimEnd()}…` : clean
+}
+
 function renderBaseSelect() {
   const session = activeSession()
   const select = $('#base')
   select.disabled = !session?.live || !session.branch
   select.title = session && !session.live ? 'Solo se puede cambiar en una tab en vivo' : ''
-  const list = session?.base && !branchList.includes(session.base) ? [session.base, ...branchList] : branchList
-  setOptions(select, list.join('\n'), `<option value="">Foto inicial</option>` + list.map((b) => `<option>${esc(b)}</option>`).join(''))
+  const list = session?.base && !session.base.startsWith('commit:') && !branchList.includes(session.base)
+    ? [session.base, ...branchList]
+    : branchList
+  // La base elegida puede ser un commit que ya no está en los últimos 50: se agrega igual
+  const commits = session?.base?.startsWith('commit:') && !commitList.some((c) => `commit:${c.sha}` === session.base)
+    ? [{ sha: session.base.slice(7), subject: session.baseLabel ?? '', when: '' }, ...commitList]
+    : commitList
+  const opts = list.map((b) => `<option>${esc(b)}</option>`).join('')
+  const commitOpts = commits
+    .map((c) => `<option value="commit:${esc(c.sha)}">${esc(`${c.sha}  ${c.subject}${c.when ? `  · ${c.when}` : ''}`)}</option>`)
+    .join('')
+  // Los commits van arriba: la lista de branches puede ser larguísima
+  setOptions(select, `${list.join('\n')}|${commits.map((c) => c.sha).join('\n')}`,
+    `<option value="">Foto inicial</option>` +
+    (commitOpts ? `<optgroup label="Commits de esta branch">${commitOpts}</optgroup>` : '') +
+    `<optgroup label="Branches">${opts}</optgroup>`)
   select.value = session?.base ?? ''
   syncPicker(select)
 }
@@ -380,11 +421,12 @@ function renderBaseSelect() {
 async function loadBranches() {
   if (active === null) return
   const id = active
-  const { branches, local, remote } = await api(`/api/branches?session=${id}`)
+  const { branches, local, remote, commits } = await api(`/api/branches?session=${id}`)
   if (id !== active) return
   branchList = branches
   localBranches = local
   remoteBranches = remote
+  commitList = commits ?? []
   branchesFor = id
   renderBaseSelect()
   renderCheckoutSelect()
@@ -399,7 +441,8 @@ const pickers = new Map() // select -> { button, pop, input, list, items, hl }
 function createPicker(select) {
   const button = Object.assign(document.createElement('button'), { type: 'button', className: 'picker-btn' })
   const pop = Object.assign(document.createElement('div'), { className: 'picker-pop', hidden: true })
-  pop.innerHTML = '<input class="picker-search" placeholder="Buscar branch…" spellcheck="false" /><ul class="picker-list" role="listbox"></ul>'
+  const placeholder = select.id === 'base' ? 'Buscar branch o commit…' : 'Buscar branch…'
+  pop.innerHTML = `<input class="picker-search" placeholder="${placeholder}" spellcheck="false" /><ul class="picker-list" role="listbox"></ul>`
   select.after(button, pop)
   const p = { button, pop, input: pop.querySelector('input'), list: pop.querySelector('ul'), items: [], hl: 0 }
   pickers.set(select, p)
@@ -512,8 +555,11 @@ $('#checkout').addEventListener('change', async (e) => {
 
 $('#base').addEventListener('change', async (e) => {
   $('#status').textContent = 'calculando…'
+  const base = e.target.value
+  // Para un commit, en la tab se muestra el sha corto y el mensaje (recortado), no "commit:abc1234"
+  const label = base.startsWith('commit:') ? shortCommitLabel(e.target.selectedOptions[0].text) : base
   try {
-    await api('/api/base', { session: active, base: e.target.value || null })
+    await api('/api/base', { session: active, base: base || null, label })
   } catch (err) {
     $('#status').textContent = `⚠ ${err.message}`
   }
